@@ -134,6 +134,37 @@ static int cmd_read_remote_fae_table(const struct shell *sh, size_t argc, char *
 	return 0;
 }
 
+static void cs_test_subevent_data_cb(struct bt_cs_test_subevent_data *result)
+{
+	shell_print(ctx_shell, "Received subevent data: ");
+	shell_hexdump(ctx_shell, result->subevent_data, result->subevent_data_length);
+
+	shell_print(ctx_shell, "\nSubevent Header:\n"
+		"- Procedure Counter: %d\n"
+		"- Frequency Compensation: 0x%04x\n"
+		"- Reference Power Level: %d\n"
+		"- Procedure Done Status: 0x%02x\n"
+		"- Subevent Done Status: 0x%02x\n"
+		"- Procedure Abort Reason: 0x%02x\n"
+		"- Subevent Abort Reason: 0x%02x\n"
+		"- Number of Antenna Paths: %d\n"
+		"- Number of Steps Reported: %d",
+		sys_get_le16(&result->subevent_data[0]),
+		sys_get_le16(&result->subevent_data[2]),
+		result->subevent_data[4],
+		result->subevent_data[5],
+		result->subevent_data[6],
+		result->subevent_data[7] & 0xf,
+		(result->subevent_data[7] >> 4) & 0xf,
+		result->subevent_data[8],
+		result->subevent_data[9]);
+}
+
+static void cs_test_end_complete_cb(void)
+{
+	shell_print(ctx_shell, "CS Test End Complete.");
+}
+
 static int cmd_cs_test_simple(const struct shell *sh, size_t argc, char *argv[])
 {
 	int err = 0;
@@ -185,9 +216,35 @@ static int cmd_cs_test_simple(const struct shell *sh, size_t argc, char *argv[])
 		BT_CS_TEST_OVERRIDE_0_CHSEL_ALG_3C_HAT_SHAPE;
 	params.override_config_0.not_set.ch3c_jump = 0x2;
 
+	bt_cs_test_cb_unregister();
+
+	struct bt_cs_test_cb cs_test_cb = {
+		.cs_test_subevent_data_available = cs_test_subevent_data_cb,
+		.cs_test_end_complete = cs_test_end_complete_cb,
+	};
+
+	err = bt_cs_test_cb_register(cs_test_cb);
+	if (err) {
+		shell_error(sh, "bt_cs_test_cb_register returned error %d", err);
+		return -ENOEXEC;
+	}
+
 	err = bt_cs_start_test(&params);
 	if (err) {
 		shell_error(sh, "bt_cs_start_test returned error %d", err);
+		return -ENOEXEC;
+	}
+
+	return 0;
+}
+
+static int cmd_cs_stop_test(const struct shell *sh, size_t argc, char *argv[])
+{
+	int err = 0;
+
+	err = bt_cs_stop_test();
+	if (err) {
+		shell_error(sh, "bt_cs_stop_test returned error %d", err);
 		return -ENOEXEC;
 	}
 
@@ -213,6 +270,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 		start_simple_cs_test, NULL,
 		"<Role selection (initiator, reflector): 0, 1>",
 		cmd_cs_test_simple, 2, 0),
+	SHELL_CMD_ARG(
+		stop_cs_test, NULL,
+		"<None>",
+		cmd_cs_stop_test, 1, 0),
 	SHELL_SUBCMD_SET_END);
 
 static int cmd_cs(const struct shell *sh, size_t argc, char **argv)

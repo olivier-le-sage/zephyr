@@ -413,6 +413,12 @@ struct bt_conn_le_cs_fae_table {
 	uint8_t *remote_fae_table;
 };
 
+/** Subevent data for LE conenctions supporting CS */
+struct bt_conn_le_cs_subevent_result {
+	uint8_t subevent_data_length;
+	uint8_t *subevent_data;
+};
+
 /** @brief Increment a connection's reference count.
  *
  *  Increment the reference count of a connection object.
@@ -1532,6 +1538,19 @@ struct bt_conn_cb {
 	 */
 	void (*remote_cs_fae_table_available)(struct bt_conn *conn,
 					      struct bt_conn_le_cs_fae_table *params);
+
+	/** @brief Subevent Results from a CS procedure are available.
+	 *
+	 * This callback notifies the user that CS subevent results are
+	 * available for the given connection object.
+	 *
+	 * Note that this data is provided in HCI format.
+	 *
+	 * @param conn Connection objects.
+	 * @param result Subevent results
+	 */
+	void (*subevent_data_available)(struct bt_conn *conn,
+					       struct bt_conn_le_cs_subevent_result *result);
 #endif
 
 	/** @internal Internally used field for list handling */

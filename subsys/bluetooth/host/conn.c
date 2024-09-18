@@ -3341,6 +3341,23 @@ void notify_remote_cs_fae_table(struct bt_conn *conn, struct bt_conn_le_cs_fae_t
 		}
 	}
 }
+
+void notify_subevent_result(struct bt_conn *conn, struct bt_conn_le_cs_subevent_result result)
+{
+	struct bt_conn_cb *callback;
+
+	SYS_SLIST_FOR_EACH_CONTAINER(&conn_cbs, callback, _node) {
+		if (callback->subevent_data_available) {
+			callback->subevent_data_available(conn, &result);
+		}
+	}
+
+	STRUCT_SECTION_FOREACH(bt_conn_cb, cb) {
+		if (cb->subevent_data_available) {
+			cb->subevent_data_available(conn, &result);
+		}
+	}
+}
 #endif /* CONFIG_BT_CHANNEL_SOUNDING */
 
 int bt_conn_le_param_update(struct bt_conn *conn,

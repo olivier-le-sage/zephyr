@@ -506,6 +506,23 @@ struct bt_cs_test_param {
 	} override_config_8;
 };
 
+/** Subevent data produced as a result of a CS Test */
+struct bt_cs_test_subevent_data {
+	uint8_t subevent_data_length;
+	uint8_t *subevent_data;
+};
+
+/** Callbacks for CS Test */
+struct bt_cs_test_cb {
+	/**@brief CS Test Subevent data.
+	 *
+	 * @param[in] Subevent results.
+	 */
+	void (*cs_test_subevent_data_available)(struct bt_cs_test_subevent_data *result);
+	/**@brief CS Test End Complete. */
+	void (*cs_test_end_complete)(void);
+};
+
 /** @brief Read Remote Supported Capabilities
  *
  * This command is used to query the CS capabilities that are supported
@@ -547,6 +564,17 @@ int bt_cs_set_default_settings(struct bt_conn *conn,
  */
 int bt_cs_read_remote_fae_table(struct bt_conn *conn);
 
+/** @brief Register callbacks for the CS Test mode.
+ *
+ * @param cs_test_cb Set of callbacks to be used with CS Test
+ *
+ * @return Zero on success or (negative) error code on failure.
+ */
+int bt_cs_test_cb_register(struct bt_cs_test_cb cs_test_cb);
+
+/** @brief Clear callbacks registrations for CS Test mode. */
+void bt_cs_test_cb_unregister(void);
+
 /** @brief Start a CS test
  *
  * This command is used to start a CS test where the IUT is placed in the role
@@ -568,6 +596,19 @@ int bt_cs_read_remote_fae_table(struct bt_conn *conn);
  * @return Zero on success or (negative) error code on failure.
  */
 int bt_cs_start_test(const struct bt_cs_test_param *params);
+
+/** @brief Stop ongoing CS Test
+ *
+ * This command is used to stop any CS test that is in progress.
+ *
+ * The controller is expected to finish reporting any subevent results
+ * before completing this termination.
+ *
+ * @note To use this API @kconfig{CONFIG_BT_CHANNEL_SOUNDING} must be set.
+ *
+ * @return Zero on success or (negative) error code on failure.
+ */
+int bt_cs_stop_test(void);
 
 #ifdef __cplusplus
 }

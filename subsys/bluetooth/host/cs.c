@@ -18,6 +18,8 @@
 LOG_MODULE_REGISTER(bt_cs);
 
 #if defined(CONFIG_BT_CHANNEL_SOUNDING)
+static struct bt_cs_test_cb cs_test_callbacks;
+
 int bt_cs_read_remote_supported_capabilities(struct bt_conn *conn)
 {
 	struct bt_hci_cp_le_read_remote_supported_capabilities *cp;
@@ -223,6 +225,25 @@ void bt_hci_le_cs_read_remote_fae_table_complete(struct net_buf *buf)
 	bt_conn_unref(conn);
 }
 
+
+int bt_cs_test_cb_register(struct bt_cs_test_cb cb)
+{
+	if (cs_test_callbacks.cs_test_subevent_data_available ||
+		cs_test_callbacks.cs_test_end_complete) {
+		LOG_ERR("Tried to overwrite existing callbacks.");
+		return -EPERM;
+	}
+
+	cs_test_callbacks = cb;
+	return 0;
+}
+
+void bt_cs_test_cb_unregister(void)
+{
+	cs_test_callbacks.cs_test_subevent_data_available = NULL;
+	cs_test_callbacks.cs_test_end_complete = NULL;
+}
+
 int bt_cs_start_test(const struct bt_cs_test_param *params)
 {
 	struct bt_hci_op_le_cs_test *cp;
@@ -321,6 +342,114 @@ int bt_cs_start_test(const struct bt_cs_test_param *params)
 	cp->override_parameters_length = override_parameters_length;
 
 	return bt_hci_cmd_send_sync(BT_HCI_OP_LE_CS_TEST, buf, NULL);
+}
+
+void bt_hci_le_cs_subevent_result(struct net_buf *buf)
+{
+	struct bt_conn *conn;
+	struct bt_hci_evt_le_cs_subevent_result *evt;
+
+	if (buf->len < sizeof(*evt)) {
+		LOG_ERR("Unexpected end of buffer");
+		return;
+	}
+
+	evt = net_buf_pull_mem(buf, sizeof(*evt));
+
+	if (sys_le16_to_cpu(evt->conn_handle) == BT_HCI_LE_CS_TEST_CONN_HANDLE) {
+		if (cs_test_callbacks.cs_test_subevent_data_available) {
+			uint8_t subevent_data_len = sizeof(*evt) -
+				offsetof(struct bt_hci_evt_le_cs_subevent_result, procedure_counter);
+
+			LOG_INF("Calculated header len as %d", subevent_data_len);
+
+			for (uint8_t i = 0; i < evt->num_steps_reported; i++) {
+				struct bt_hci_evt_le_cs_subevent_result_step *step =
+					net_buf_pull_mem(buf, sizeof(struct bt_hci_evt_le_cs_subevent_result_step));
+
+				(void)net_buf_pull_mem(buf, step->step_data_length);
+				subevent_data_len += sizeof(struct bt_hci_evt_le_cs_subevent_result_step);
+				subevent_data_len += step->step_data_length;
+			};
+
+			LOG_INF("Calculated subevent data len as %d", subevent_data_len);
+
+			struct bt_cs_test_subevent_data data = {
+				.subevent_data_length = subevent_data_len,
+				.subevent_data = (uint8_t*)&evt->procedure_counter,
+			};
+			cs_test_callbacks.cs_test_subevent_data_available(&data);
+		} else {
+			LOG_INF("Discarded subevent results from CS Test.");
+			return;
+		}
+	} else {
+		conn = bt_conn_lookup_handle(sys_le16_to_cpu(evt->conn_handle), BT_CONN_TYPE_LE);
+		if (!conn) {
+			LOG_ERR("Could not lookup connection handle when processing subevent results");
+			return;
+		}
+
+		uint8_t subevent_data_len = sizeof(*evt) -
+			offsetof(struct bt_hci_evt_le_cs_subevent_result, config_id);
+
+		LOG_INF("Calculated header len as %d", subevent_data_len);
+
+		for (uint8_t i = 0; i < evt->num_steps_reported; i++) {
+			struct bt_hci_evt_le_cs_subevent_result_step *step =
+				net_buf_pull_mem(buf, sizeof(struct bt_hci_evt_le_cs_subevent_result_step));
+
+			(void)net_buf_pull_mem(buf, step->step_data_length);
+			subevent_data_len += sizeof(struct bt_hci_evt_le_cs_subevent_result_step);
+			subevent_data_len += step->step_data_length;
+		};
+
+		LOG_INF("Calculated subevent data len as %d", subevent_data_len);
+
+		struct bt_conn_le_cs_subevent_result data = {
+			.subevent_data_length = subevent_data_len,
+			.subevent_data = &evt->config_id,
+		};
+
+		notify_subevent_result(conn, data);
+
+		bt_conn_unref(conn);
+	}
+}
+
+int bt_cs_stop_test(void)
+{
+	struct net_buf *buf;
+
+	buf = bt_hci_cmd_create(BT_HCI_OP_LE_CS_TEST_END, 0);
+	if (!buf) {
+		return -ENOBUFS;
+	}
+
+	return bt_hci_cmd_send_sync(BT_HCI_OP_LE_CS_TEST_END, buf, NULL);
+}
+
+void bt_hci_le_cs_test_end_complete(struct net_buf *buf)
+{
+	struct bt_hci_evt_le_cs_test_end_complete *evt;
+
+	if (buf->len < sizeof(*evt)) {
+		LOG_ERR("Unexpected end of buffer");
+		return;
+	}
+
+	evt = net_buf_pull_mem(buf, sizeof(*evt));
+	if (evt->status) {
+		LOG_INF("CS Test End failed with status 0x%02X", evt->status);
+		return;
+	}
+
+	if (cs_test_callbacks.cs_test_end_complete) {
+		cs_test_callbacks.cs_test_end_complete();
+	} else {
+		LOG_INF("Ignoring CS Test End Complete.");
+		return;
+	}
 }
 
 #endif /* CONFIG_BT_CHANNEL_SOUNDING */
