@@ -2582,6 +2582,8 @@ struct bt_hci_op_le_cs_test {
 	uint8_t override_parameters_data[];
 } __packed;
 
+#define BT_HCI_OP_LE_CS_TEST_END BT_OP(BT_OGF_LE, 0x0096) /* 0x2096 */
+
 /* Event definitions */
 
 #define BT_HCI_EVT_UNKNOWN                      0x00
@@ -3403,6 +3405,67 @@ struct bt_hci_evt_le_cs_read_remote_fae_table_complete {
 	uint8_t remote_fae_table[72];
 } __packed;
 
+#define BT_HCI_LE_CS_TEST_CONN_HANDLE 0x0FFF
+
+#define BT_HCI_LE_CS_PROCEDURE_DONE_STATUS_COMPLETE 0x0
+#define BT_HCI_LE_CS_PROCEDURE_DONE_STATUS_PARTIAL  0x1
+#define BT_HCI_LE_CS_PROCEDURE_DONE_STATUS_ABORTED  0xF
+
+#define BT_HCI_LE_CS_SUBEVENT_DONE_STATUS_COMPLETE 0x0
+#define BT_HCI_LE_CS_SUBEVENT_DONE_STATUS_PARTIAL  0x1
+#define BT_HCI_LE_CS_SUBEVENT_DONE_STATUS_ABORTED  0xF
+
+#define BT_HCI_LE_CS_PROCEDURE_ABORT_REASON_NO_ABORT                    0x0
+#define BT_HCI_LE_CS_PROCEDURE_ABORT_REASON_LOCAL_HOST_OR_REMOTE_REQEST 0x1
+#define BT_HCI_LE_CS_PROCEDURE_ABORT_REASON_TOO_FEW_CHANNELS            0x2
+#define BT_HCI_LE_CS_PROCEDURE_ABORT_REASON_CHMAP_INSTANT_PASSED        0x3
+#define BT_HCI_LE_CS_PROCEDURE_ABORT_REASON_UNSPECIFIED                 0xF
+
+#define BT_HCI_LE_CS_SUBEVENT_ABORT_REASON_NO_ABORT                    0x0
+#define BT_HCI_LE_CS_SUBEVENT_ABORT_REASON_LOCAL_HOST_OR_REMOTE_REQEST 0x1
+#define BT_HCI_LE_CS_SUBEVENT_ABORT_REASON_NO_CS_SYNC_RECEIVED         0x2
+#define BT_HCI_LE_CS_SUBEVENT_ABORT_REASON_SCHED_CONFLICT              0x3
+#define BT_HCI_LE_CS_SUBEVENT_ABORT_REASON_UNSPECIFIED                 0xF
+
+#define BT_HCI_LE_CS_SUBEVENT_ABORT_REASON_PROCEDURE_MASK 0x0F
+#define BT_HCI_LE_CS_SUBEVENT_ABORT_REASON_SUBEVENT_MASK  0xF0
+
+#define BT_HCI_LE_CS_SUBEVENT_RESULT_N_AP_IGNORED 0x00
+#define BT_HCI_LE_CS_SUBEVENT_RESULT_N_AP_1       0x01
+#define BT_HCI_LE_CS_SUBEVENT_RESULT_N_AP_2       0x02
+#define BT_HCI_LE_CS_SUBEVENT_RESULT_N_AP_3       0x03
+#define BT_HCI_LE_CS_SUBEVENT_RESULT_N_AP_4       0x04
+
+#define BT_HCI_LE_CS_SUBEVENT_RESULT_FREQ_COMPENSATION_NOT_AVAILABLE 0xC000
+
+#define BT_HCI_EVT_LE_CS_SUBEVENT_RESULT 0x31
+struct bt_hci_evt_le_cs_subevent_result_step {
+	uint8_t step_mode;
+	uint8_t step_channel;
+	uint8_t step_data_length;
+	uint8_t step_data[];
+};
+
+struct bt_hci_evt_le_cs_subevent_result {
+	uint16_t conn_handle;
+	uint8_t config_id;
+	uint16_t start_acl_conn_event_counter;
+	uint16_t procedure_counter;
+	uint16_t frequency_compensation;
+	uint8_t reference_power_level;
+	uint8_t procedure_done_status;
+	uint8_t subevent_done_status;
+	uint8_t abort_reason;
+	uint8_t num_antenna_paths;
+	uint8_t num_steps_reported;
+	uint8_t steps[];
+} __packed;
+
+#define BT_HCI_EVT_LE_CS_TEST_END_COMPLETE 0x33
+struct bt_hci_evt_le_cs_test_end_complete {
+	uint8_t status;
+} __packed;
+
 /* Event mask bits */
 
 #define BT_EVT_BIT(n) (1ULL << (n))
@@ -3494,6 +3557,8 @@ struct bt_hci_evt_le_cs_read_remote_fae_table_complete {
 
 #define BT_EVT_MASK_LE_CS_READ_REMOTE_SUPPORTED_CAPABILITIES_COMPLETE BT_EVT_BIT(43)
 #define BT_EVT_MASK_LE_CS_READ_REMOTE_FAE_TABLE_COMPLETE              BT_EVT_BIT(44)
+#define BT_EVT_MASK_LE_CS_SUBEVENT_RESULT                             BT_EVT_BIT(48)
+#define BT_EVT_MASK_LE_CS_TEST_END_COMPLETE                           BT_EVT_BIT(50)
 
 /** HCI Error Codes, BT Core Spec v5.4 [Vol 1, Part F]. */
 #define BT_HCI_ERR_SUCCESS                      0x00

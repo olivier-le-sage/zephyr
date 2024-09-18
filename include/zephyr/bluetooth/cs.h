@@ -506,6 +506,70 @@ struct bt_cs_test_param {
 	} override_config_8;
 };
 
+/** Subevent data for CS Test */
+struct bt_cs_test_subevent_result {
+	struct {
+		/** CS procedure count associated with these results. */
+		uint16_t procedure_counter;
+		/** Frequency compensation value in units of 0.01 ppm.
+		 *
+		 *  This is a 15-bit signed integer in the range [-100, 100] ppm.
+		 */
+		uint16_t frequency_compensation;
+		/** Reference power level in dBm.
+		 *
+		 *  Range: -127 to 20
+		 */
+		uint8_t reference_power_level;
+		/** Procedure status. */
+		uint8_t procedure_done_status;
+		/** Subevent status. */
+		uint8_t subevent_done_status;
+		/** Abort reason.
+		 *
+		 *  If the procedure status is
+		 *  @ref BT_HCI_LE_CS_PROCEDURE_DONE_STATUS_ABORTED, this field will
+		 *  specify the reason for the abortion.
+		 */
+		uint8_t procedure_abort_reason;
+		/** Abort reason.
+		 *
+		 *  If the subevent status is
+		 *  @ref BT_HCI_LE_CS_SUBEVENT_DONE_STATUS_ABORTED, this field will
+		 *  specify the reason for the abortion.
+		 */
+		uint8_t subevent_abort_reason;
+		/** Number of antenna paths used during the phase measurement stage of the CS steps. */
+		uint8_t num_antenna_paths;
+		/** Number of CS steps in the subevent.  */
+		uint8_t num_steps_reported;
+	} header;
+	struct net_buf_simple *step_data_buf;
+};
+
+/** Callbacks for CS Test */
+struct bt_cs_test_cb {
+	/**@brief CS Test Subevent data.
+	 *
+	 * @param[in] Subevent results.
+	 */
+	void (*cs_test_subevent_data_available)(struct bt_cs_test_subevent_result *data);
+	/**@brief CS Test End Complete. */
+	void (*cs_test_end_complete)(void);
+};
+
+/** Subevent result step */
+struct bt_cs_subevent_step {
+	/** CS step mode. */
+	uint8_t mode;
+	/** CS step channel index. */
+	uint8_t channel;
+	/** Length of role- and mode-specific information being reported. */
+	uint8_t data_len;
+	/** Pointer to role- and mode-specific information. */
+	const uint8_t *data;
+};
+
 /** @brief Read Remote Supported Capabilities
  *
  * This command is used to query the CS capabilities that are supported
@@ -547,6 +611,17 @@ int bt_cs_set_default_settings(struct bt_conn *conn,
  */
 int bt_cs_read_remote_fae_table(struct bt_conn *conn);
 
+/** @brief Register callbacks for the CS Test mode.
+ *
+ * @param cs_test_cb Set of callbacks to be used with CS Test
+ *
+ * @return Zero on success or (negative) error code on failure.
+ */
+int bt_cs_test_cb_register(struct bt_cs_test_cb cs_test_cb);
+
+/** @brief Clear callbacks registrations for CS Test mode. */
+void bt_cs_test_cb_unregister(void);
+
 /** @brief Start a CS test
  *
  * This command is used to start a CS test where the IUT is placed in the role
@@ -568,6 +643,34 @@ int bt_cs_read_remote_fae_table(struct bt_conn *conn);
  * @return Zero on success or (negative) error code on failure.
  */
 int bt_cs_start_test(const struct bt_cs_test_param *params);
+
+/** @brief Stop ongoing CS Test
+ *
+ * This command is used to stop any CS test that is in progress.
+ *
+ * The controller is expected to finish reporting any subevent results
+ * before completing this termination.
+ *
+ * @note To use this API @kconfig{CONFIG_BT_CHANNEL_SOUNDING} must be set.
+ *
+ * @return Zero on success or (negative) error code on failure.
+ */
+int bt_cs_stop_test(void);
+
+/** @brief Parse CS Test Subevent Results
+ *
+ * A helper for parsing HCI-formatted step data found in channel sounding subevent results.
+ *
+ * A typical use-case is filtering out data which does not meet certain packet quality or NADM
+ * requirements.
+ *
+ * @warning This function will consume the data when parsing.
+ *
+ * @param func Callback function which will be called for each step data found.
+ *             The callback sould return true to continue parsing, or false to stop.
+ */
+void bt_cs_step_data_parse(struct net_buf_simple *step_data_buf,
+			bool (*func)(struct bt_cs_subevent_step *step));
 
 #ifdef __cplusplus
 }

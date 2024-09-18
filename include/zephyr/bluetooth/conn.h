@@ -413,6 +413,54 @@ struct bt_conn_le_cs_fae_table {
 	uint8_t *remote_fae_table;
 };
 
+/** Subevent data for LE connections supporting CS */
+struct bt_conn_le_cs_subevent_result {
+	struct {
+		/** CS configuration identifier.
+		 *
+		 *  Range: 0 to 3
+		 */
+		uint8_t config_id;
+		/** Starting ACL connection event counter. */
+		uint16_t start_acl_conn_event;
+		/** CS procedure count associated with these results. */
+		uint16_t procedure_counter;
+		/** Frequency compensation value in units of 0.01 ppm.
+		 *
+		 *  This is a 15-bit signed integer in the range [-100, 100] ppm.
+		 */
+		uint16_t frequency_compensation;
+		/** Reference power level in dBm.
+		 *
+		 *  Range: -127 to 20
+		 */
+		uint8_t reference_power_level;
+		/** Procedure status. */
+		uint8_t procedure_done_status;
+		/** Subevent status. */
+		uint8_t subevent_done_status;
+		/** Abort reason.
+		 *
+		 *  If the procedure status is
+		 *  @ref BT_HCI_LE_CS_PROCEDURE_DONE_STATUS_ABORTED, this field will
+		 *  specify the reason for the abortion.
+		 */
+		uint8_t procedure_abort_reason;
+		/** Abort reason.
+		 *
+		 *  If the subevent status is
+		 *  @ref BT_HCI_LE_CS_SUBEVENT_DONE_STATUS_ABORTED, this field will
+		 *  specify the reason for the abortion.
+		 */
+		uint8_t subevent_abort_reason;
+		/** Number of antenna paths used during the phase measurement stage of the CS steps. */
+		uint8_t num_antenna_paths;
+		/** Number of CS steps in the subevent.  */
+		uint8_t num_steps_reported;
+	} header;
+	struct net_buf_simple *step_data_buf;
+};
+
 /** @brief Increment a connection's reference count.
  *
  *  Increment the reference count of a connection object.
@@ -1532,6 +1580,19 @@ struct bt_conn_cb {
 	 */
 	void (*remote_cs_fae_table_available)(struct bt_conn *conn,
 					      struct bt_conn_le_cs_fae_table *params);
+
+	/** @brief Subevent Results from a CS procedure are available.
+	 *
+	 * This callback notifies the user that CS subevent results are
+	 * available for the given connection object.
+	 *
+	 * Note that this data is provided in HCI format.
+	 *
+	 * @param conn Connection objects.
+	 * @param result Subevent results
+	 */
+	void (*subevent_data_available)(struct bt_conn *conn,
+					       struct bt_conn_le_cs_subevent_result *result);
 #endif
 
 	/** @internal Internally used field for list handling */
