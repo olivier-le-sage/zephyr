@@ -1980,8 +1980,18 @@ int bt_id_set_adv_own_addr(struct bt_le_ext_adv *adv, uint32_t options,
 				scan_disabled = true;
 				bt_le_scan_set_enable(BT_HCI_LE_SCAN_DISABLE);
 			}
-#endif /* defined(CONFIG_BT_OBSERVER) */
+
+			/* If we are scanning with the identity address, it does
+			 * not make sense to set an NRPA.
+			 */
+			if (!(IS_ENABLED(CONFIG_BT_SCAN_WITH_IDENTITY) &&
+			    atomic_test_bit(bt_dev.flags, BT_DEV_SCANNING))) {
+				err = bt_id_set_adv_private_addr(adv);
+			}
+#else
 			err = bt_id_set_adv_private_addr(adv);
+#endif /* defined(CONFIG_BT_OBSERVER) */
+
 			*own_addr_type = BT_HCI_OWN_ADDR_RANDOM;
 
 #if defined(CONFIG_BT_OBSERVER)
